@@ -386,8 +386,23 @@ def build_app() -> gr.Blocks:
 
 
 if __name__ == "__main__":
-    build_app().launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        root_path="/proxy/7860",
+    import os
+    import uvicorn
+    from fastapi import FastAPI
+    import gradio as gr
+
+    ROOT_PATH = "/proxy/7860"
+    os.environ["GRADIO_ROOT_PATH"] = ROOT_PATH
+
+    gradio_app = build_app()
+
+    app = FastAPI(root_path=ROOT_PATH, docs_url=None, redoc_url=None)
+    gr.mount_gradio_app(app, gradio_app, path="/")
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=7860,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
     )
