@@ -14,7 +14,25 @@ if ! command -v conda >/dev/null 2>&1; then
 fi
 
 echo "Checking port ${PORT}..."
-pids="$(lsof -ti tcp:${PORT} || true)"
+
+get_port_pids() {
+  if command -v lsof >/dev/null 2>&1; then
+    # macOS: lsof is reliable
+    lsof -ti "tcp:${PORT}" 2>/dev/null || true
+  elif command -v ss >/dev/null 2>&1; then
+    # Linux: try ss (prefer socket info)
+    ss -tlnp "sport = :${PORT}" 2>/dev/null \
+      | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' \
+      | sort -u || true
+  elif command -v fuser >/dev/null 2>&1; then
+    # Linux fallback: fuser (output format: "1234 5678 " with spaces)
+    fuser "${PORT}/tcp" 2>/dev/null | tr ' ' '\n' | sed '/^$/d' || true
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -tlnp 2>/dev/null | awk -v p=":${PORT} " '$4 ~ p { split($NF,a,"/"); print a[1] }' | sort -u || true
+  fi
+}
+
+pids="$(get_port_pids)"
 
 if [[ -n "${pids}" ]]; then
   echo "Port ${PORT} is occupied by PID(s): ${pids}"
@@ -22,7 +40,7 @@ if [[ -n "${pids}" ]]; then
   kill ${pids} || true
   sleep 2
 
-  still_running="$(lsof -ti tcp:${PORT} || true)"
+  still_running="$(get_port_pids)"
   if [[ -n "${still_running}" ]]; then
     echo "Force killing PID(s): ${still_running}"
     kill -9 ${still_running} || true
