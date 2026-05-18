@@ -55,6 +55,8 @@ if [[ ! -f "${APP_FILE}" ]]; then
   exit 1
 fi
 
+export GRADIO_ROOT_PATH="/proxy/${PORT}"
+
 echo "Starting SAM2 UI with conda env '${CONDA_ENV}'..."
-echo "Open: http://127.0.0.1:${PORT}"
+echo "Proxy URL: /proxy/${PORT}"
 exec conda run -n "${CONDA_ENV}" python "${APP_FILE}"
